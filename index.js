@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors());
@@ -15,9 +14,15 @@ app.get('/products', async (req, res) => {
     try {
         const response = await fetch(`${FIREBASE_URL}products.json`);
         const data = await response.json();
-        res.json(data || {});
+        
+        // Firebase devuelve un objeto. Si está vacío, respondemos con un array vacío.
+        if (!data) return res.json([]);
+        
+        // Mapeamos aquí en el backend para que a la App Móvil le llegue un Array limpio listo para usar
+        const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        res.json(formattedData);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(502).json({ error: "Error al leer de Firebase", details: err.message });
     }
 });
 
@@ -26,12 +31,13 @@ app.post('/products', async (req, res) => {
     try {
         const response = await fetch(`${FIREBASE_URL}products.json`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body)
         });
         const result = await response.json();
         res.status(201).json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(502).json({ error: "Error al escribir en Firebase", details: err.message });
     }
 });
 
@@ -40,9 +46,9 @@ app.delete('/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
         await fetch(`${FIREBASE_URL}products/${id}.json`, { method: 'DELETE' });
-        res.json({ message: 'Eliminado correctamente' });
+        res.json({ success: true, message: 'Eliminado correctamente' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(502).json({ error: "Error al eliminar en Firebase", details: err.message });
     }
 });
 
@@ -51,22 +57,28 @@ app.post('/users', async (req, res) => {
     try {
         const response = await fetch(`${FIREBASE_URL}users.json`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body)
         });
-        res.status(201).json(await response.json());
+        const result = await response.json();
+        res.status(201).json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(502).json({ error: "Error al registrar usuario", details: err.message });
     }
 });
 
 app.get('/users', async (req, res) => {
     try {
         const response = await fetch(`${FIREBASE_URL}users.json`);
-        res.json(await response.json());
+        const data = await response.json();
+        if (!data) return res.json([]);
+        const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        res.json(formattedData);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(502).json({ error: "Error al obtener usuarios", details: err.message });
     }
 });
 
+// Railway asigna automáticamente el puerto por variable de entorno
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
