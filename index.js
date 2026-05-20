@@ -1,107 +1,85 @@
 const express = require('express');
 const cors = require('cors');
-const https = require('https'); // Usamos el módulo nativo del núcleo de Node.js
+const axios = require('axios');
 
 const app = express();
+
+// Configuración de CORS y JSON
 app.use(cors());
 app.use(express.json());
 
-const FIREBASE_BASE_URL = 'stockmaster-61d56-default-rtdb.firebaseio.com';
+// URL base de tu Realtime Database de Firebase (con el .json final administrado dinámicamente)
+const FIREBASE_URL = 'https://stockmaster-61d56-default-rtdb.firebaseio.com';
 
-// Función auxiliar nativa para consultar a Firebase sin depender de dependencias externas
-const firebaseRequest = (path, method = 'GET', bodyData = null) => {
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: FIREBASE_BASE_URL,
-            path: path,
-            method: method,
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
+// --- ENDPOINTS ---
 
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve(JSON.parse(data));
-                } catch (e) {
-                    resolve(data);
-                }
-            });
-        });
-
-        req.on('error', (err) => reject(err));
-
-        if (bodyData) {
-            req.write(JSON.stringify(bodyData));
-        }
-        req.end();
-    });
-};
-
-// --- ENDPOINTS PARA TU APP ---
-
-// Obtener Productos
-app.get('/products', async (req, res) => {
+// 1. Obtener Usuarios
+app.get('/users', async (req, res) => {
     try {
-        const data = await firebaseRequest('/products.json', 'GET');
+        const response = await axios.get(`${FIREBASE_URL}/users.json`);
+        const data = response.data;
         if (!data || data === 'null') return res.json([]);
         
-        // Mapeamos el objeto de Firebase a Array limpio para tu frontend
+        // Formatear de Objeto Firebase a Array para tu React Native
         const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
         res.json(formattedData);
     } catch (err) {
-        res.status(500).json({ error: "Fallo en Firebase", details: err.message });
+        console.error("Error en GET /users:", err.message);
+        res.status(500).json({ error: "Error al obtener usuarios de Firebase", details: err.message });
     }
 });
 
-// Guardar Producto
+// 2. Registrar Usuario
+app.post('/users', async (req, res) => {
+    try {
+        const response = await axios.post(`${FIREBASE_URL}/users.json`, req.body);
+        res.status(201).json(response.data);
+    } catch (err) {
+        console.error("Error en POST /users:", err.message);
+        res.status(500).json({ error: "Error al guardar usuario en Firebase", details: err.message });
+    }
+});
+
+// 3. Obtener Productos
+app.get('/products', async (req, res) => {
+    try {
+        const response = await axios.get(`${FIREBASE_URL}/products.json`);
+        const data = response.data;
+        if (!data || data === 'null') return res.json([]);
+        
+        const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        res.json(formattedData);
+    } catch (err) {
+        console.error("Error en GET /products:", err.message);
+        res.status(500).json({ error: "Error al obtener productos", details: err.message });
+    }
+});
+
+// 4. Guardar Producto
 app.post('/products', async (req, res) => {
     try {
-        const result = await firebaseRequest('/products.json', 'POST', req.body);
-        res.status(201).json(result);
+        const response = await axios.post(`${FIREBASE_URL}/products.json`, req.body);
+        res.status(201).json(response.data);
     } catch (err) {
-        res.status(500).json({ error: "Fallo al guardar", details: err.message });
+        console.error("Error en POST /products:", err.message);
+        res.status(500).json({ error: "Error al guardar producto", details: err.message });
     }
 });
 
-// Eliminar Producto
+// 5. Eliminar Producto
 app.delete('/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await firebaseRequest(`/products/${id}.json`, 'DELETE');
-        res.json({ success: true });
+        await axios.delete(`${FIREBASE_URL}/products/${id}.json`);
+        res.json({ success: true, message: "Eliminado correctamente" });
     } catch (err) {
-        res.status(500).json({ error: "Fallo al eliminar", details: err.message });
+        console.error("Error en DELETE /products:", err.message);
+        res.status(500).json({ error: "Error al eliminar producto", details: err.message });
     }
 });
 
-// Registrar Usuario
-app.post('/users', async (req, res) => {
-    try {
-        const result = await firebaseRequest('/users.json', 'POST', req.body);
-        res.status(201).json(result);
-    } catch (err) {
-        res.status(500).json({ error: "Fallo al registrar usuario", details: err.message });
-    }
-});
-
-// Obtener Usuarios
-app.get('/users', async (req, res) => {
-    try {
-        const data = await firebaseRequest('/users.json', 'GET');
-        if (!data || data === 'null') return res.json([]);
-        const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        res.json(formattedData);
-    } catch (err) {
-        res.status(500).json({ error: "Fallo al obtener usuarios", details: err.message });
-    }
-});
-
+// --- CONFIGURACIÓN DE RED OBLIGATORIA PARA RAILWAY ---
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor corriendo exitosamente en el puerto asignado por Railway: ${PORT}`);
+    console.log(`Servidor corriendo en puerto asignado: ${PORT}`);
 });
