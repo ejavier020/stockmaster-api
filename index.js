@@ -78,8 +78,12 @@ app.delete('/products/:id', async (req, res) => {
     }
 });
 
-// --- CONFIGURACIÓN DE RED OBLIGATORIA PARA RAILWAY ---
+// REEMPLAZA EL FINAL DE TU index.js CON ESTO:
+
+// Dejamos que Railway asigne dinámicamente el puerto; si no hay, cae en el 3000 por defecto
 const PORT = process.env.PORT || 3000;
+
+// Escuchamos en '0.0.0.0' para que acepte conexiones externas de Railway
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor corriendo en puerto asignado: ${PORT}`);
+    console.log(`[BACKEND ACTIVO] Escuchando dinámicamente en el puerto: ${PORT}`);
 });
