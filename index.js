@@ -1,84 +1,104 @@
 const express = require('express');
 const cors = require('cors');
+const https = require('https'); // Usamos el módulo nativo del núcleo de Node.js
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const FIREBASE_URL = 'https://stockmaster-61d56-default-rtdb.firebaseio.com/';
+const FIREBASE_BASE_URL = 'stockmaster-61d56-default-rtdb.firebaseio.com';
 
-// --- ENDPOINTS PARA PRODUCTOS ---
+// Función auxiliar nativa para consultar a Firebase sin depender de dependencias externas
+const firebaseRequest = (path, method = 'GET', bodyData = null) => {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: FIREBASE_BASE_URL,
+            path: path,
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
 
-// Obtener todos
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    resolve(data);
+                }
+            });
+        });
+
+        req.on('error', (err) => reject(err));
+
+        if (bodyData) {
+            req.write(JSON.stringify(bodyData));
+        }
+        req.end();
+    });
+};
+
+// --- ENDPOINTS PARA TU APP ---
+
+// Obtener Productos
 app.get('/products', async (req, res) => {
     try {
-        const response = await fetch(`${FIREBASE_URL}products.json`);
-        const data = await response.json();
+        const data = await firebaseRequest('/products.json', 'GET');
+        if (!data || data === 'null') return res.json([]);
         
-        // Firebase devuelve un objeto. Si está vacío, respondemos con un array vacío.
-        if (!data) return res.json([]);
-        
-        // Mapeamos aquí en el backend para que a la App Móvil le llegue un Array limpio listo para usar
+        // Mapeamos el objeto de Firebase a Array limpio para tu frontend
         const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
         res.json(formattedData);
     } catch (err) {
-        res.status(502).json({ error: "Error al leer de Firebase", details: err.message });
+        res.status(500).json({ error: "Fallo en Firebase", details: err.message });
     }
 });
 
-// Guardar nuevo
+// Guardar Producto
 app.post('/products', async (req, res) => {
     try {
-        const response = await fetch(`${FIREBASE_URL}products.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body)
-        });
-        const result = await response.json();
+        const result = await firebaseRequest('/products.json', 'POST', req.body);
         res.status(201).json(result);
     } catch (err) {
-        res.status(502).json({ error: "Error al escribir en Firebase", details: err.message });
+        res.status(500).json({ error: "Fallo al guardar", details: err.message });
     }
 });
 
-// Eliminar
+// Eliminar Producto
 app.delete('/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await fetch(`${FIREBASE_URL}products/${id}.json`, { method: 'DELETE' });
-        res.json({ success: true, message: 'Eliminado correctamente' });
+        await firebaseRequest(`/products/${id}.json`, 'DELETE');
+        res.json({ success: true });
     } catch (err) {
-        res.status(502).json({ error: "Error al eliminar en Firebase", details: err.message });
+        res.status(500).json({ error: "Fallo al eliminar", details: err.message });
     }
 });
 
-// --- ENDPOINTS PARA USUARIOS ---
+// Registrar Usuario
 app.post('/users', async (req, res) => {
     try {
-        const response = await fetch(`${FIREBASE_URL}users.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body)
-        });
-        const result = await response.json();
+        const result = await firebaseRequest('/users.json', 'POST', req.body);
         res.status(201).json(result);
     } catch (err) {
-        res.status(502).json({ error: "Error al registrar usuario", details: err.message });
+        res.status(500).json({ error: "Fallo al registrar usuario", details: err.message });
     }
 });
 
+// Obtener Usuarios
 app.get('/users', async (req, res) => {
     try {
-        const response = await fetch(`${FIREBASE_URL}users.json`);
-        const data = await response.json();
-        if (!data) return res.json([]);
+        const data = await firebaseRequest('/users.json', 'GET');
+        if (!data || data === 'null') return res.json([]);
         const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
         res.json(formattedData);
     } catch (err) {
-        res.status(502).json({ error: "Error al obtener usuarios", details: err.message });
+        res.status(500).json({ error: "Fallo al obtener usuarios", details: err.message });
     }
 });
 
-// Railway asigna automáticamente el puerto por variable de entorno
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Servidor corriendo de forma segura en puerto ${PORT}`));
