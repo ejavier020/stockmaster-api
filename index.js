@@ -4,14 +4,23 @@ const axios = require('axios');
 
 const app = express();
 
-// Configuración de CORS y JSON
+// Configuración obligatoria de CORS y JSON para que Railway no bloquee el celular
 app.use(cors());
 app.use(express.json());
 
-// URL base de tu Realtime Database de Firebase (con el .json final administrado dinámicamente)
+// URL base de tu Realtime Database de Firebase
 const FIREBASE_URL = 'https://stockmaster-61d56-default-rtdb.firebaseio.com';
 
-// --- ENDPOINTS ---
+// --- ENDPOINT DE DIAGNÓSTICO (Para validar en el navegador) ---
+app.get('/', (req, res) => {
+    res.json({
+        status: "online",
+        message: "API de StockMaster corriendo exitosamente en Railway",
+        timestamp: new Date()
+    });
+});
+
+// --- ENDPOINTS DE LOGOCIOS ---
 
 // 1. Obtener Usuarios
 app.get('/users', async (req, res) => {
@@ -78,12 +87,12 @@ app.delete('/products/:id', async (req, res) => {
     }
 });
 
-// REEMPLAZA EL FINAL DE TU index.js CON ESTO:
+// --- CONFIGURACIÓN DE PUERTOS PARA ENTORNOS DE PRODUCCIÓN (RAILWAY) ---
 
-// Dejamos que Railway asigne dinámicamente el puerto; si no hay, cae en el 3000 por defecto
+// Forzamos a que use la variable estricta de Railway. Si no existe, cae en el 3000.
 const PORT = process.env.PORT || 3000;
 
-// Escuchamos en '0.0.0.0' para que acepte conexiones externas de Railway
+// Escuchamos en '0.0.0.0' de forma mandatoria para que el proxy reenvíe el tráfico del celular a Express
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[BACKEND ACTIVO] Escuchando dinámicamente en el puerto: ${PORT}`);
+    console.log(`[BACKEND ACTIVO] Servidor acoplado dinámicamente en el puerto: ${PORT}`);
 });

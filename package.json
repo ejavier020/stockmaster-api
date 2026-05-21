@@ -1,13 +1,13 @@
 {
   "name": "stockmaster-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "API Independiente para StockMaster",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   },
   "dependencies": {
     "axios": "^1.6.8",
@@ -15,4 +15,3 @@
     "express": "^4.19.2"
   }
 }
-
